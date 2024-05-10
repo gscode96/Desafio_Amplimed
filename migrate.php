@@ -24,21 +24,41 @@ $connMedical = mysqli_connect("localhost", "root", "%Logx3296#", "MedicalChallen
 // Informações de Inicio da Migração:
 echo "Início da Migração: " . dateNow() . ".\n\n";
 
+
+//função para gerar o id
+function gerarId($conexao, $tabela){
+  $idInicial = 1;
+
+  $buscarIdSalvo = "SELECT MAX(id) as ultimoID FROM $tabela WHERE id < 10276";
+  $resultado = $conexao->query($buscarIdSalvo);
+
+  if ($resultado) {
+    $linhasRetornadas = $resultado->fetch_assoc();
+    $idInicial = $linhasRetornadas['ultimoID'];
+  }
+
+  $proximoId = $idInicial + 1;
+
+
+  return $proximoId;
+
+}
+/*
+
 //limpandos os dados antes da inserção
+$limpezaPacientes = "DELETE FROM pacientes WHERE id > 1 and id < 10276;";
 $limpezaConvenios = "DELETE FROM convenios WHERE id >= 5;";
-$limpezaPacientes = "DELETE FROM pacientes WHERE id > 1 and id < 10272;";
+$limpezaMedicos = "DELETE FROM profissionais WHERE id < 85217;";
 $connMedical ->query($limpezaConvenios);
 $connMedical ->query($limpezaPacientes);
-$resetSequencialConv = "ALTER TABLE convenios AUTO_INCREMENT = 5;";
-$resetSequencialPaci = "ALTER TABLE pacientes AUTO_INCREMENT = 2;";
-$connMedical ->query($resetSequencialConv);
-$connMedical ->query($resetSequencialPaci);
+
 
 
 $h = fopen("/home/gabriel/Downloads/migration-challenge-main/dados_sistema_legado/20210512_pacientes.csv","r") 
-or die("Não foi possivel abrir o arquivo csv") ;
+or die("Não foi possivel abrir o arquivo csv de pacientes") ;
 
 $cabeçalho = true;
+$convenioInserido = array();
 
 while (($dados = fgetcsv($h, 1000, ";"))!== false)
 
@@ -56,7 +76,7 @@ while (($dados = fgetcsv($h, 1000, ";"))!== false)
   $cpf = $dados[5];
   $rg = $dados[6];
   $sexo = $dados[7];
-  $idConvenio = intval($dados[8]);
+  $idConvenioLegado = intval($dados[8]);
   $convenio = $dados[9];
   if ($sexo === 'M') {
     $sexo = 'Masculino';
@@ -64,8 +84,16 @@ while (($dados = fgetcsv($h, 1000, ";"))!== false)
     $sexo = 'Feminino';
   } 
   //inserindo convenios
-  $insertConvenio = "INSERT INTO convenios (nome, descricao)VALUES ('$convenio','$convenio')";
+  if (!in_array($convenio,$convenioInserido)) {
+    //verificando para não inserir convenios iguais
+    $idConvenio = gerarId($connMedical,'convenios');
+  $insertConvenio = "INSERT INTO convenios (id,nome, descricao)VALUES ($idConvenio,'$convenio','$convenio')";
   $connMedical->query($insertConvenio) or die("Ocorreu um erro ao inserir o convenio");
+    //coloando no array para comparar
+    $convenioInserido[] = $convenio;
+  }
+
+  
 
   //buscando o id salvo dos convenios para inserir nos pacientes
   $selectConvenio = "SELECT id FROM convenios WHERE nome = '$convenio'";
@@ -74,13 +102,84 @@ while (($dados = fgetcsv($h, 1000, ";"))!== false)
   $idSalvo = $linhas['id'];
  
   //inserindo os pacientes
-  $insertPaciente = $connMedical->prepare("INSERT INTO pacientes (nome, sexo, nascimento, cpf, rg, id_convenio, cod_referencia) 
-  VALUES (?, ?, ?, ?, ?, ?, ?)");
-  $insertPaciente->bind_param("sssssii",$nome, $sexo, $dataFormatada, $cpf, $rg, $idSalvo,$codReferencia);
+  $id = gerarId($connMedical, 'pacientes');
+  $insertPaciente = $connMedical->prepare("INSERT INTO pacientes (id,nome, sexo, nascimento, cpf, rg, id_convenio, cod_referencia) 
+  VALUES (?,?, ?, ?, ?, ?, ?, ?)");
+  $insertPaciente->bind_param("isssssii",$id,$nome, $sexo, $dataFormatada, $cpf, $rg, $idSalvo,$codReferencia);
   $insertPaciente->execute() or die("Ocorreu um erro ao inserir o paciente");
+
 
 }
 fclose($h);
+*/
+
+$cabeçalho = true;
+$i = fopen("/home/gabriel/Downloads/migration-challenge-main/dados_sistema_legado/20210512_agendamentos.csv","r") 
+or die("Não foi possivel abrir o arquivo csv de agendamentos") ;
+
+while (($dadosAgendamentos = fgetcsv($i, 1000, ";"))) {
+
+  if ($cabeçalho) {
+    $cabeçalho = false;
+    continue;
+  }
+
+  //Inserindo medicos
+  $nomeMedico = $dadosAgendamentos[8];
+  $idMedico = gerarId($connMedical,'profissionais');
+  $insertMedico = $connMedical->prepare("INSERT INTO profissionais (id,nome) VALUES (?,?)");
+  $insertMedico->bind_param("is",$idMedico, $nomeMedico);
+  $insertMedico->execute() or die ("Ocorreu um erro ao inserrir o medico");
+
+
+  //Inserindo Agendamentos
+
+  //buscando id do paciente
+  $nomePaciente = $dadosAgendamentos[6];
+  $selectPaciente = "SELECT id FROM pacientes WHERE nome = $nomePaciente";
+  $resultQuery = $connMedical->query($selectPaciente) or die ("Ocorreu um erro ao buscar o paciente");
+  $linhas = $resultQuery->fetch_assoc();
+  $idPacienteSalvo = $linhas['id'];
+
+
+  //buscamento id do medico
+  $selectMedico = "SELECT id FROM profissionais WHERE nome = $nomeMedico";
+  $resultQuery = $connMedical->query($selectMedico) or die ("Ocorreu um erro ao buscar o medico");
+  $linhas = $resultQuery->fetch_assoc();
+  $idMedico = $linhas['id'];
+
+  //buscando id do convenio
+  $nomeConvenio = $dadosAgendamentos[10];
+  $selectConvenio= "SELECT id FROM convenios WHERE nome = $nomeConvenio";
+  $resultQuery = $connMedical->query($selectConvenio) or die ("Ocorreu um erro ao buscar o convenio");
+  $linhas = $resultQuery->fetch_assoc();
+  $idConvenio = $linhas['id'];
+
+   //buscando id do procedimento
+   $nomeProcedimento = $dadosAgendamentos[11];
+   $selectProcedimento= "SELECT id FROM procedimentos WHERE nome = $nomeProcedimento";
+   $resultQuery = $connMedical->query($selectProcedimento) or die ("Ocorreu um erro ao buscar o procedimento");
+   $linhas = $resultQuery->fetch_assoc();
+   $idProcedimento = $linhas['id'];
+
+
+  $dataInicio = $dadosAgendamentos[2].$dadosAgendamentos[3];
+  $dataFim = $dadosAgendamentos[2].$dadosAgendamentos[4];
+  
+  $Observacoes = $dadosAgendamentos[1];
+
+  $id = gerarId($connMedical, 'agendamentos');
+  $insertAgendamento = $connMedical->prepare("INSERT INTO agendamentos (id, id_paciente, id_profissional, dh_inicio, dh_final, id_convenio, id_procedimento, observacoes) 
+  VALUES (?,?, ?, ?, ?, ?, ?, ?)");
+  $insertPaciente->bind_param("iiiddiis", $id,$idPacienteSalvo,$idMedico, $dataInicio, $dataFim, $idConvenio, $idProcedimento, $Observacoes);
+  $insertPaciente->execute() or die("Ocorreu um erro ao inserir o agendamento");
+
+
+}
+
+
+fclose($i);
+
 
 
 // Encerrando as conexões:
