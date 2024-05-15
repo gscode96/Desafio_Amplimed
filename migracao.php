@@ -1,48 +1,12 @@
 <?php
-/*
-  Descrição do Desafio:
-    Você precisa realizar uma migração dos dados fictícios que estão na pasta <dados_sistema_legado> para a base da clínica fictícia MedicalChallenge.
-    Para isso, você precisa:
-      1. Instalar o MariaDB na sua máquina. Dica: Você pode utilizar Docker para isso;
-      2. Restaurar o banco da clínica fictícia Medical Challenge: arquivo <medical_challenge_schema>;
-      3. Migrar os dados do sistema legado fictício que estão na pasta <dados_sistema_legado>:
-        a) Dica: você pode criar uma função para importar os arquivos do formato CSV para uma tabela em um banco temporário no seu MariaDB.
-      4. Gerar um dump dos dados já migrados para o banco da clínica fictícia Medical Challenge.
-*/
 
-// Importação de Bibliotecas:
 include "./lib.php";
+include "./Util/StringOp.php";
 
-// Conexão com o banco da clínica fictícia:
-$connMedical = mysqli_connect("localhost", "root", "root", "MedicalChallenge")
+$connMedical = mysqli_connect("localhost", "root", "%Logx3296#", "MedicalChallenge")
   or die("Não foi possível conectar os servidor MySQL: MedicalChallenge\n");
 
-// Conexão com o banco temporário:
-//$connTemp = mysqli_connect("localhost", "root", "root", "0temp")
-// or die("Não foi possível conectar os servidor MySQL: 0temp\n");
-
-// Informações de Inicio da Migração:
 echo "Início da Migração: " . dateNow() . ".\n\n";
-
-
-//função para gerar o id
-/*function gerarId($conexao, $tabela)
-{
-  $idInicial = 1;
-
-  $buscarIdSalvo = "SELECT MAX(id) as ultimoID FROM $tabela WHERE id < 10276";
-  $resultado = $conexao->query($buscarIdSalvo);
-
-  if ($resultado) {
-    $linhasRetornadas = $resultado->fetch_assoc();
-    $idInicial = $linhasRetornadas['ultimoID'];
-  }
-
-  $proximoId = $idInicial + 1;
-
-
-  return $proximoId;
-}*/
 
 
 //limpandos os dados antes da inserção
@@ -71,9 +35,19 @@ while (($dados = fgetcsv($h, 1000, ";")) !== false) {
     $cabeçalho = false;
     continue;
   }
+  /*if ($dados[0]) {
+    $tipoRef = (string) $dados[0];    
+    $cutRef = substr($tipoRef,0,50);
+    $upperRef = strtoupper($cutRef);
+    echo $cutRef;
+  }*/
 
-  $codReferencia = $dados[0];
-  $nome = $dados[1];
+
+  
+  $codReferencia = stringOp($dados[0]);
+  $nome = stringOp($dados[1]);
+  echo $nome;
+  
   $nascimento = $dados[2];
   $dataFormatada = DateTime::createFromFormat('d/m/Y', $nascimento)->format('Y-m-d');
   $cpf = $dados[5];
@@ -85,7 +59,8 @@ while (($dados = fgetcsv($h, 1000, ";")) !== false) {
     $sexo = 'Masculino';
   } else {
     $sexo = 'Feminino';
-  }
+  }}
+  /*
   //inserindo convenios
   if (!in_array($convenio, $convenioInserido)) {
     //verificando para não inserir convenios iguais
@@ -184,7 +159,7 @@ while (($dadosAgendamentos = fgetcsv($i, 1000, ";"))) {
 
 
 fclose($i);
-
+*/
 
 
 // Encerrando as conexões:
